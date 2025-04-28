@@ -7,11 +7,22 @@
   },
   "keywords": [],
   "author": "",
+  "type": "commonjs",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "mongoose": "^8.13.0"
+    "express-session": "^1.18.1",
+    "glpk.js": "^4.0.2",
+    "jsonwebtoken": "^9.0.2",
+    "mathjs": "^14.4.0",
+    "mongoose": "^8.13.0",
+    "numeric": "^1.2.6",
+    "quadprog": "^1.6.1",
+    "yahoo-finance2": "^2.13.3"
   }
 }

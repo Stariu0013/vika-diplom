@@ -1,4 +1,4 @@
-import React, {memo, useMemo, useState} from "react";
+import {memo, useEffect, useMemo, useState} from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import {
@@ -12,91 +12,66 @@ import {
 import Typography from "@mui/material/Typography";
 import MenuItem from "@mui/material/MenuItem";
 import {useInput} from "../../utils/useInput/useInput.js";
-import {activesData} from "../../data/actives.js";
-
-const getRiskStyles = (riskLevel) => {
-    switch (riskLevel) {
-        case 'low':
-            return {
-                backgroundColor: 'green',
-                color: 'white',
-                borderRadius: 1,
-                padding: 2,
-                fontWeight: 'bold',
-                textAlign: 'center',
-            };
-        case 'medium':
-            return {
-                backgroundColor: 'orange',
-                color: 'white',
-                borderRadius: 1,
-                padding: 2,
-                fontWeight: 'bold',
-                textAlign: 'center',
-            };
-        case 'high':
-            return {
-                backgroundColor: 'red',
-                color: 'white',
-                borderRadius: 1,
-                padding: 2,
-                fontWeight: 'bold',
-                textAlign: 'center',
-            };
-        default:
-            return {
-                backgroundColor: 'gray',
-                color: 'white',
-                borderRadius: 1,
-                padding: 2,
-                fontWeight: 'bold',
-                textAlign: 'center',
-            };
-    }
-};
 
 const ActivesForm = memo(function PortfolioForm({ type, portfolioSum, addActiveItems }) {
     const activeCount = useInput(0);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [currentActiveIndex, setCurrentActiveIndex] = useState(0);
 
-    const selectedActiveData = activesData[type][currentActiveIndex];
+    const [activesData, setActivesData] = useState([]);
+    const [selectedSymbol, setSelectedSymbol] = useState(null);
+
+    useEffect(() => {
+        fetch(`http://localhost:5125/api/stocks/${type}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data) {
+                    setActivesData(data);
+                    setSelectedSymbol(Object.keys(data)[0]);
+                }
+            }).catch(err => console.error("Failed to fetch sectors:", err));
+    }, []);
+
+    const selectedActiveNewestDataIndex = activesData[selectedSymbol]?.data.length - 1;
+    const selectedActiveData = activesData[selectedSymbol]?.data[selectedActiveNewestDataIndex];
+
     const {
-        name: activeSelectName,
-        risk: activeSelectRisk,
-        percents,
-        price,
-    } = selectedActiveData;
+        volatility,
+        open: price,
+        riskScore,
+        expectedReturn,
+        dailyReturns
+    } = selectedActiveData || {};
 
     const maxActivesToBuy = useMemo(() => {
         return Math.floor(portfolioSum / price)
-    }, [currentActiveIndex]);
+    }, [portfolioSum, price]);
 
     const openModal = () => {
         setIsModalOpen(true);
     };
     const closeModal = () => {
+        activeCount?.setDefaultValue();
         setIsModalOpen(false);
     };
-    const handleSelectChange = (_, child) => {
-        const index = child.props["data-index"]
-
-        setCurrentActiveIndex(index);
+    const handleSelectChange = (event) => {
+        setSelectedSymbol(event.target.value);
     };
     const handleSubmit = (e) => {
         e.preventDefault();
 
         const data = {
             activeCount: Number(activeCount.value),
-            risk: activeSelectRisk,
-            percents,
-            name: activeSelectName,
+            riskScore,
+            volatility,
+            name: selectedSymbol,
             price,
+            dailyReturns,
+            expectedReturn,
             id: Math.random().toString(36).substr(2, 10)
         };
 
         addActiveItems(data);
-        setCurrentActiveIndex(0);
+        setSelectedSymbol(Object.keys(activesData)[0]);
 
         closeModal();
     };
@@ -167,7 +142,7 @@ const ActivesForm = memo(function PortfolioForm({ type, portfolioSum, addActiveI
                             <Select
                                 labelId="demo-simple-select-label"
                                 id="demo-simple-select"
-                                value={activeSelectName}
+                                value={selectedSymbol}
                                 label="Назва активу"
                                 onChange={handleSelectChange}
                                 sx={{
@@ -182,11 +157,11 @@ const ActivesForm = memo(function PortfolioForm({ type, portfolioSum, addActiveI
                                     },
                                 }}
                             >
-                                {activesData[type].map((item, ind) => (
-                                    <MenuItem data-index={ind} value={item.name} key={item.name}>
-                                        {item.name}
+                                {Object.keys(activesData).map((item) => {
+                                    return <MenuItem value={item} key={item}>
+                                        {item}
                                     </MenuItem>
-                                ))}
+                                })}
                             </Select>
                         </FormControl>
 
@@ -196,14 +171,16 @@ const ActivesForm = memo(function PortfolioForm({ type, portfolioSum, addActiveI
                             Ціна - {price}
                         </Box>
 
-                        <Box sx={getRiskStyles(activeSelectRisk)}>
-                            Risk: {activeSelectRisk}
+                        <Box sx={{
+                            margin: '10px 0',
+                        }}>
+                            Волатильність - {volatility?.toFixed(3)}
                         </Box>
 
                         <Box sx={{
                             margin: '10px 0',
                         }}>
-                            Дохідність - {percents}%
+                            Дохідність - {expectedReturn?.toFixed(2)} %
                         </Box>
 
                         <InputLabel htmlFor="price">
@@ -234,31 +211,6 @@ const ActivesForm = memo(function PortfolioForm({ type, portfolioSum, addActiveI
                         />
 
                         {maxActivesCountNode}
-
-                        <InputLabel htmlFor="price">
-                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                                Очікувана дохідність
-                            </Typography>
-                        </InputLabel>
-                        <Input
-                            type="number"
-                            name="price"
-                            id="price"
-                            inputProps={{
-                                min: 0,
-                            }}
-                            placeholder="Введіть суму інвестицій"
-                            sx={{
-                                marginBottom: 3,
-                                padding: 1.5,
-                                width: '100%',
-                                borderRadius: 2,
-                                border: '1px solid #ccc',
-                                '&:hover': {
-                                    borderColor: '#007BFF',
-                                },
-                            }}
-                        />
 
                         <Button
                             type="submit"

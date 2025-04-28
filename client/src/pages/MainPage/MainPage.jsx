@@ -2,6 +2,7 @@ import PortfolioForm from "../../components/Portfolio/PortfolioForm.jsx";
 import {useCallback, useEffect, useState} from "react";
 import PortfolioItems from "../../components/Portfolio/PortfolioItems.jsx";
 import {CONST_NAMES} from "../../consts/consts.js";
+import axios from "axios";
 
 const MainPage = () => {
     const [portfolios, setPortfolios] = useState(JSON.parse(localStorage.getItem(CONST_NAMES.PORTFOLIOS)) || []);
@@ -16,6 +17,12 @@ const MainPage = () => {
 
         setPortfolios(prevState => [...prevState, newItem]);
     }, []);
+
+    useEffect(() => {
+        axios.get('http://localhost:5125/api/portfolios/all').then(res => {
+            console.log(res);
+        })
+    });
 
     useEffect(() => {
         localStorage.setItem(CONST_NAMES.PORTFOLIOS, JSON.stringify(portfolios));

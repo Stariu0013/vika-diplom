@@ -1,4 +1,4 @@
-import React, {memo, useState} from 'react';
+import {memo, useEffect, useState} from 'react';
 import {useInput} from "../../utils/useInput/useInput.js";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -7,9 +7,10 @@ import Typography from "@mui/material/Typography";
 import {CONST_NAMES} from "../../consts/consts.js";
 
 const PortfolioForm = memo(function PortfolioForm({addPortfolio}) {
+    const [sectors, setSectors] = useState([]);
     const portfolioNameInput = useInput("");
     const portfolioInitialInvestInput = useInput(0);
-    const portfolioSelect = useInput(CONST_NAMES.MILITARY);
+    const portfolioSelect = useInput(sectors[0]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const openModal = () => {
@@ -41,6 +42,17 @@ const PortfolioForm = memo(function PortfolioForm({addPortfolio}) {
         closeModal();
     };
 
+    useEffect(() => {
+        fetch("http://localhost:5125/api/stocks/sectors")
+            .then(res => res.json())
+            .then(data => {
+                if (data) {
+                    setSectors(Object.keys(data));
+                }
+            })
+            .catch(err => console.error("Failed to fetch sectors:", err));
+    }, []);
+
     return (
         <>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px' }}>
@@ -55,10 +67,10 @@ const PortfolioForm = memo(function PortfolioForm({addPortfolio}) {
                         '&:hover': {
                             backgroundColor: 'primary.dark',
                         },
-                        boxShadow: 2, // Add a subtle shadow for a floating effect
+                        boxShadow: 2,
                         transition: 'background-color 0.3s ease, transform 0.2s ease',
                         '&:active': {
-                            transform: 'scale(0.98)', // Add a small "click" effect on button press
+                            transform: 'scale(0.98)',
                         },
                     }}
                 >
@@ -114,8 +126,11 @@ const PortfolioForm = memo(function PortfolioForm({addPortfolio}) {
                                 name="radio-buttons-group"
                                 {...portfolioSelect}
                             >
-                                <FormControlLabel value={CONST_NAMES.MILITARY} control={<Radio />} label="Військовий сектор" />
-                                <FormControlLabel value={CONST_NAMES.CIVIL} control={<Radio />} label="Цивільне відновлення" />
+                                {
+                                    sectors.map((sector, i) => {
+                                        return <FormControlLabel value={sector} key={i} control={<Radio />} label={sector} />
+                                    })
+                                }
                             </RadioGroup>
                         </FormControl>
 

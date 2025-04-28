@@ -1,50 +1,43 @@
-// Import required modules
+require('dotenv').config();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
+const cors = require('cors');
+const authRoutes = require('./routes/auth');
+const stockRoutes = require('./routes/stocks');
+const portfolioRoutes = require('./routes/portfolio');
+const {AUTH_ROUTE, STOCK_ROUTE, PORTFOLIOS_ROUTE} = require("./consts");
+const { MONGODB_URL, PORT = 5000, SESSION_SECRET_KEY } = process.env;
+const session = require('express-session');
+
+function initializeMiddleware(app) {
+    app.use(bodyParser.json());
+    app.use(cors());
+}
+
+async function initializeDatabase() {
+    if (!MONGODB_URL) {
+        throw new Error('MONGODB_URL is not defined in environment variables');
+    }
+
+    try {
+        await mongoose.connect(MONGODB_URL, { useNewUrlParser: true, useUnifiedTopology: true });
+        console.log('Connected to MongoDB');
+    } catch (error) {
+        console.error('Database connection error:', error);
+    }
+}
 
 const app = express();
+initializeMiddleware(app);
+initializeDatabase();
 
-app.use(bodyParser.json());
+app.use(AUTH_ROUTE, authRoutes);
+app.use(STOCK_ROUTE, stockRoutes);
+app.use(PORTFOLIOS_ROUTE, portfolioRoutes);
 
-const mongoURI = 'mongodb+srv://vstarynets0013:OFr47P987Zud7nPc@cluster0.lqthlkq.mongodb.net/';
-
-mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log('Connected to MongoDB'))
-    .catch(err => console.log('Error connecting to MongoDB:', err));
-
-const userSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true }
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
 
-const User = mongoose.model('User', userSchema);
-
-app.post('/api/register', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: 'User already exists' });
-        }
-
-        // Create a new user instance
-        const newUser = new User({
-            email,
-            password
-        });
-
-        // Save the user to the database
-        await newUser.save();
-
-        res.status(201).json({ message: 'User created successfully', user: newUser });
-    } catch (error) {
-        res.status(500).json({ message: 'Error creating user', error });
-    }
-});
-
-const port = 5125;
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
-});
