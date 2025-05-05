@@ -17,7 +17,7 @@ export const useActivesForm = ({type, portfolioSum, addActiveItems}) => {
     useEffect(() => {
         setLoading(true);
         setError(null);
-        axiosInstance.get(`http://localhost:5125/api/stocks/${type}`)
+        axiosInstance.get(`https://vika-diplom-api.onrender.com/api/stocks/${type}`)
             .then(res => {
                 if (res.status === 200) {
                     const data = res.data;
@@ -106,7 +106,7 @@ export const useActivesForm = ({type, portfolioSum, addActiveItems}) => {
         if (userConfirmation) {
             const id = JSON.parse(localStorage.getItem('selectedPortfolio'));
 
-            axiosInstance.delete(`http://localhost:5125/api/portfolios/delete/${id}`).then(res => {
+            axiosInstance.delete(`https://vika-diplom-api.onrender.com/api/portfolios/delete/${id}`).then(res => {
                 if (res.status === 200) {
                     localStorage.removeItem('selectedPortfolio');
                     navigate('/');
