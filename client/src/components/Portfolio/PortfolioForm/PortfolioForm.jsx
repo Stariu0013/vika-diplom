@@ -1,57 +1,33 @@
-import {memo, useEffect, useState} from 'react';
-import {useInput} from "../../utils/useInput/useInput.js";
+import {memo} from 'react';
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import {FormControl, FormControlLabel, FormLabel, Input, InputLabel, Modal, Radio, RadioGroup} from "@mui/material";
-import Typography from "@mui/material/Typography";
-import {CONST_NAMES} from "../../consts/consts.js";
+import {
+    FormControl,
+    FormControlLabel,
+    FormLabel,
+    Input,
+    InputLabel,
+    Modal,
+    Radio,
+    RadioGroup,
+    Typography,
+    CircularProgress
+} from "@mui/material";
+import {usePortfolioForm} from "./usePortfolioForm.jsx";
 
 const PortfolioForm = memo(function PortfolioForm({addPortfolio}) {
-    const [sectors, setSectors] = useState([]);
-    const portfolioNameInput = useInput("");
-    const portfolioInitialInvestInput = useInput(0);
-    const portfolioSelect = useInput(sectors[0]);
-
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const openModal = () => {
-        setIsModalOpen(true);
-    };
-    const closeModal = () => {
-        setIsModalOpen(false);
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-
-        const portfolioName = portfolioNameInput.value;
-        const portfolioInitialInvest = portfolioInitialInvestInput.value;
-        const select = portfolioSelect.value;
-
-        //todo: ADD VALIDATION
-
-        addPortfolio({
-            portfolioName,
-            wallet: portfolioInitialInvest,
-            type: select
-        });
-
-        portfolioNameInput.onChange("");
-        portfolioSelect.onChange(CONST_NAMES.MILITARY);
-        portfolioInitialInvestInput.onChange(0);
-
-        closeModal();
-    };
-
-    useEffect(() => {
-        fetch("http://localhost:5125/api/stocks/sectors")
-            .then(res => res.json())
-            .then(data => {
-                if (data) {
-                    setSectors(Object.keys(data));
-                }
-            })
-            .catch(err => console.error("Failed to fetch sectors:", err));
-    }, []);
+    const {
+        isModalOpen,
+        portfolioNameInput,
+        portfolioInitialInvestInput,
+        portfolioSelect,
+        sectors,
+        error,
+        loading,
+        handleSubmit,
+        openModal,
+        closeModal,
+    } = usePortfolioForm({addPortfolio});
 
     return (
         <>
@@ -64,6 +40,7 @@ const PortfolioForm = memo(function PortfolioForm({addPortfolio}) {
                         padding: '10px 20px',
                         borderRadius: '8px',
                         fontWeight: 'bold',
+                        marginBottom: '12px',
                         '&:hover': {
                             backgroundColor: 'primary.dark',
                         },
@@ -77,7 +54,6 @@ const PortfolioForm = memo(function PortfolioForm({addPortfolio}) {
                     Створити портфрель
                 </Button>
             </Box>
-
 
             <Modal
                 open={isModalOpen}
@@ -100,7 +76,6 @@ const PortfolioForm = memo(function PortfolioForm({addPortfolio}) {
                     gap: 2,
                 }}>
                     <form onSubmit={handleSubmit}>
-
                         <InputLabel htmlFor="name" sx={{ fontWeight: 'bold' }}>
                             <Typography variant="h6">Введіть назву портфеля</Typography>
                         </InputLabel>
@@ -117,20 +92,25 @@ const PortfolioForm = memo(function PortfolioForm({addPortfolio}) {
                                 '&:focus': { borderColor: 'primary.main' }
                             }}
                         />
-
+                        
                         <FormControl sx={{ mb: 2 }}>
-                            <FormLabel id="demo-radio-buttons-group-label" sx={{ fontWeight: 'bold' }}>Кактегорія портфеля</FormLabel>
+                            <FormLabel id="demo-radio-buttons-group-label" sx={{ fontWeight: 'bold' }}>
+                                Кактегорія портфеля
+                            </FormLabel>
                             <RadioGroup
                                 aria-labelledby="demo-radio-buttons-group-label"
                                 defaultValue="military"
                                 name="radio-buttons-group"
                                 {...portfolioSelect}
                             >
-                                {
-                                    sectors.map((sector, i) => {
-                                        return <FormControlLabel value={sector} key={i} control={<Radio />} label={sector} />
-                                    })
-                                }
+                                {sectors.map((sector, i) => (
+                                    <FormControlLabel
+                                        value={sector}
+                                        key={i}
+                                        control={<Radio />}
+                                        label={sector}
+                                    />
+                                ))}
                             </RadioGroup>
                         </FormControl>
 
@@ -152,6 +132,17 @@ const PortfolioForm = memo(function PortfolioForm({addPortfolio}) {
                             }}
                         />
 
+                        {loading && (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                                <CircularProgress size={24} />
+                            </Box>
+                        )}
+                        {error && (
+                            <Typography sx={{ color: 'error.main', mb: 2, textAlign: 'center' }}>
+                                {error}
+                            </Typography>
+                        )}
+
                         <Button
                             type="submit"
                             sx={{
@@ -163,8 +154,9 @@ const PortfolioForm = memo(function PortfolioForm({addPortfolio}) {
                                 borderRadius: 2,
                                 fontWeight: 'bold',
                             }}
+                            disabled={loading}
                         >
-                            Створити портфель
+                            {loading ? 'Зачекайте...' : 'Створити портфель'}
                         </Button>
                     </form>
                 </Box>

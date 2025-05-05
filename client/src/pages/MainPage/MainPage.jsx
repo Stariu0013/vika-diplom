@@ -1,38 +1,62 @@
-import PortfolioForm from "../../components/Portfolio/PortfolioForm.jsx";
-import {useCallback, useEffect, useState} from "react";
-import PortfolioItems from "../../components/Portfolio/PortfolioItems.jsx";
-import {CONST_NAMES} from "../../consts/consts.js";
-import axios from "axios";
+import { useMainPage } from "./useMainPage.jsx";
+import Typography from "@mui/material/Typography";
+import CircularProgress from "@mui/material/CircularProgress";
+import React, {Suspense} from "react";
+
+const PortfolioForm = React.lazy(() =>
+    import("../../components/Portfolio/PortfolioForm/PortfolioForm.jsx")
+);
+const PortfolioItems = React.lazy(() =>
+    import("../../components/Portfolio/PortfolioItems/PortfolioItems.jsx")
+);
+
 
 const MainPage = () => {
-    const [portfolios, setPortfolios] = useState(JSON.parse(localStorage.getItem(CONST_NAMES.PORTFOLIOS)) || []);
+    const {
+        portfolios,
+        addPortfolio,
+        loading,
+        error,
+    } = useMainPage();
 
-    const addPortfolio = useCallback((item) => {
-        const newItem = {
-            ...item,
-            dateCreated: new Date(),
-            actives: [],
-            id: Math.random().toString(36).substr(2, 10)
-        }
+    const loadingComponent = React.useMemo(
+        () => (
+            <div style={{ textAlign: "center", marginTop: "20px" }}>
+                <CircularProgress />
+                <Typography>Завантаження портфелів...</Typography>
+            </div>
+        ),
+        []
+    );
 
-        setPortfolios(prevState => [...prevState, newItem]);
-    }, []);
+    const errorComponent = React.useMemo(
+        () => (
+            <Typography
+                color="error"
+                style={{ textAlign: "center", marginTop: "20px" }}
+            >
+                {error?.message || "An error occurred while fetching portfolios."}
+            </Typography>
+        ),
+        [error]
+    );
 
-    useEffect(() => {
-        axios.get('http://localhost:5125/api/portfolios/all').then(res => {
-            console.log(res);
-        })
-    });
+    if (loading) {
+        return loadingComponent;
+    }
 
-    useEffect(() => {
-        localStorage.setItem(CONST_NAMES.PORTFOLIOS, JSON.stringify(portfolios));
-    }, [portfolios]);
+    if (error) {
+        return errorComponent;
+    }
 
     return (
-        <div>
-            <PortfolioForm addPortfolio={addPortfolio}/>
-            <PortfolioItems items={portfolios}/>
-        </div>
+        <Suspense fallback={<CircularProgress />}>
+            <div>
+                <PortfolioForm addPortfolio={addPortfolio} />
+                <PortfolioItems items={portfolios} />
+            </div>
+        </Suspense>
+
     );
 };
 

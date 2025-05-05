@@ -1,4 +1,3 @@
-import * as React from 'react';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
@@ -7,24 +6,20 @@ import Typography from '@mui/material/Typography';
 import Menu from '@mui/material/Menu';
 import MenuIcon from '@mui/icons-material/Menu';
 import Container from '@mui/material/Container';
-import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
-import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import AdbIcon from '@mui/icons-material/Adb';
 import {Link} from "react-router-dom";
 import {navbarLinksData} from "../../consts/consts.js";
+import {useNavbar} from "./useNavbar.jsx";
 
 function ResponsiveAppBar() {
-    const [anchorElNav, setAnchorElNav] = React.useState(null);
-    const userName = localStorage.getItem('userName');
-
-    const handleOpenNavMenu = (event) => {
-        setAnchorElNav(event.currentTarget);
-    };
-    const handleCloseNavMenu = () => {
-        setAnchorElNav(null);
-    };
+    const {
+        anchorElNav,
+        userName,
+        handleOpenNavMenu,
+        handleCloseNavMenu,
+    } = useNavbar();
 
     return (
         <AppBar position="static">
@@ -76,8 +71,16 @@ function ResponsiveAppBar() {
                         >
                             {navbarLinksData.map((page) => (
                                 <MenuItem key={page.title} onClick={handleCloseNavMenu}>
-                                    <Typography sx={{ textAlign: 'center', color: 'white' }}>
-                                        <Link to={`${page.href}`}>{page.title}</Link>
+                                    <Typography sx={{ textAlign: 'center', color: 'black' }}>
+                                        <Link
+                                            to={`${page.href}`}
+                                            style={{
+                                                textDecoration: 'none',
+                                                color: 'black'
+                                            }}
+                                        >
+                                            {page.title}
+                                        </Link>
                                     </Typography>
                                 </MenuItem>
                             ))}
@@ -105,7 +108,7 @@ function ResponsiveAppBar() {
                             <Button
                                 key={page.title}
                                 onClick={handleCloseNavMenu}
-                                sx={{ my: 2, color: 'white', display: 'block' }}
+                                sx={{ my: 2, color: 'black', display: 'block' }}
                             >
                                 <Link to={`${page.href}`}>{page.title}</Link>
                             </Button>

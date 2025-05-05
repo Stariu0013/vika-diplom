@@ -4,9 +4,10 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const router = express.Router();
 
-const JWT_SECRET = 'your_jwt_secret_key'; // Replace with an environment variable for security
+const JWT_SECRET = process.env.JWT_SECRET_KEY;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET_KEY; // Add a separate secret key for refresh tokens
+const refreshTokens = [];
 
-// Signup Route - No changes here
 router.post('/signup', async (req, res) => {
     const { username, email, password } = req.body;
 
@@ -16,11 +17,8 @@ router.post('/signup', async (req, res) => {
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
-        console.log('Signup Debug: Hashed password being saved:', hashedPassword);
 
-        // Save the user to the database
         const newUser = new User({ username, email, password: hashedPassword });
         await newUser.save();
 
@@ -31,41 +29,63 @@ router.post('/signup', async (req, res) => {
     }
 });
 
-// Corrected Signin Route
 router.post('/signin', async (req, res) => {
     const { email, password } = req.body;
 
     try {
         const user = await User.findOne({ email });
-        console.log('Signin Debug: Retrieved user from DB:', user);
-
-        if (!user) {
-            return res.status(400).json({ message: 'Invalid credentials - user not found' });
-        }
-
-        console.log('Signin Debug: Plain password:', password);
-        console.log('Signin Debug: Stored hashed password:', user.password);
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        console.log('Signin Debug: Password match result:', isPasswordValid);
-
-        if (!isPasswordValid) {
-            return res.status(400).json({ message: 'Invalid credentials - password mismatch' });
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ message: 'Invalid email or password' });
         }
 
         const token = jwt.sign(
-            { id: user._id, email: user.email },
+            { userId: user._id },
+            JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        const refreshToken = jwt.sign(
+            { userId: user._id },
+            JWT_REFRESH_SECRET,
+            { expiresIn: '7d' } // Refresh token valid for 7 days
+        );
+
+        refreshTokens.push(refreshToken);
+
+        res.json({
+            token,
+            refreshToken,
+            username: user.username
+        });
+    } catch (err) {
+        console.error('Login error:', err);
+        res.status(500).json({ message: 'Server error during login' });
+    }
+});
+
+router.post('/refresh-token', (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+        return res.status(401).json({ message: 'Refresh token required' });
+    }
+    if (!refreshTokens.includes(refreshToken)) {
+        return res.status(403).json({ message: 'Invalid refresh token' });
+    }
+
+    try {
+        const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+        const newToken = jwt.sign(
+            { userId: decoded.userId },
             JWT_SECRET,
             { expiresIn: '1h' }
         );
 
         res.json({
-            message: 'Logged in successfully',
-            token,
-            user: { username: user.username, email: user.email },
+            token: newToken
         });
-    } catch (error) {
-        console.error('Signin error:', error);
-        res.status(500).json({ message: 'Server error' });
+    } catch (err) {
+        console.error('Token refresh error:', err);
+        res.status(403).json({ message: 'Invalid or expired refresh token' });
     }
 });
 

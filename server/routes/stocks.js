@@ -99,9 +99,38 @@ router.get('/:sector', (req, res) => {
     })
 });
 
+let roundedPortfolioValueOutside;
+
 router.post('/optimize', async (req, res) => {
     try {
-        // Helper function to compute correlation coefficient
+        function calculateNormalizedWeights(weights) {
+            // Normalize weights to sum strictly equals 1.0
+            const total = math.sum(weights);
+            return weights.map(w => w / total);
+        }
+
+        function calculateNewActiveCounts(stocks, weights, portfolioValue) {
+            return stocks.map((stock, idx) => {
+                const weight = weights[idx];
+                // Skip if invalid weight or portfolio value
+                if (!weight || weight <= 0 || portfolioValue <= 0) {
+                    return {
+                        ...stock,
+                        activeCount: 0
+                    };
+                }
+
+                // Compute active count based on portfolio value and stock price
+                const newWeightValue = weight * portfolioValue;
+                const newActiveCount = newWeightValue / stock.price;
+
+                return {
+                    ...stock,
+                    activeCount: Math.max(0, Math.round(newActiveCount)), // Ensure valid rounding
+                };
+            });
+        }
+
         function calculateCorrelation(arr1, arr2) {
             const len = arr1.length;
             const mean1 = math.mean(arr1);
@@ -125,50 +154,95 @@ router.post('/optimize', async (req, res) => {
             }));
         }
 
-        const stocks = convertArrayFormat(req.body.stocks);
+        function computeEfficientFrontier(stocks, numPoints = 50) {
+            const n = stocks.length;
+            const mu = stocks.map(stock => stock.expectedReturn);
+            const sigma = stocks.map(stock => stock.volatility);
 
+            // Compute covariance matrix
+            const dailyReturns = stocks.map(stock => stock.dailyReturns);
+            const corrMatrix = Array.from({length: n}, (_, i) =>
+                Array.from({length: n}, (_, j) =>
+                    i === j ? 1 : calculateCorrelation(dailyReturns[i], dailyReturns[j])
+                )
+            );
+            const covMatrix = corrMatrix.map((row, i) =>
+                row.map((corrVal, j) => corrVal * sigma[i] * sigma[j])
+            );
+
+            // Calculate minimum variance and maximum return portfolios
+            const weights = [];
+            const portfolioMetrics = [];
+            for (let i = 0; i <= numPoints; i++) {
+                const targetReturn = math.min(mu) + ((math.max(mu) - math.min(mu)) * i) / numPoints;
+
+                // Define optimization function for target return
+                function loss(weights) {
+                    const sumPenalty = Math.pow(math.sum(weights) - 1, 2); // Enforce sum(weights) == 1
+                    const returnPenalty = Math.pow(math.dot(mu, weights) - targetReturn, 2); // Enforce target return
+                    const variance = weights.reduce((sum, wi, j) =>
+                        sum + wi * weights.reduce((innerSum, wj, k) => innerSum + wj * covMatrix[j][k], 0), 0
+                    );
+                    return variance + sumPenalty * 1e6 + returnPenalty * 1e7; // Weight variance + penalties
+                }
+
+                // Optimize for the given target return
+                const initialGuess = Array(n).fill(1 / n); // Equal weights as the initial guess
+                const result = numeric.uncmin(loss, initialGuess).solution;
+                const normalizedWeights = calculateNormalizedWeights(result);
+
+                // Compute portfolio return and variance
+                const portfolioReturn = math.dot(mu, normalizedWeights);
+                const portfolioVariance = normalizedWeights.reduce((sum, wi, j) =>
+                    sum + wi * normalizedWeights.reduce((innerSum, wj, k) => innerSum + wj * covMatrix[j][k], 0), 0
+                );
+
+                // Store results
+                weights.push(normalizedWeights);
+                portfolioMetrics.push({
+                    return: portfolioReturn,
+                    risk: Math.sqrt(portfolioVariance), // Standard deviation (risk)
+                });
+            }
+
+            return portfolioMetrics;
+        }
+
+        const stocks = convertArrayFormat(req.body.stocks);
         if (stocks.some(stock =>
             typeof stock.expectedReturn !== 'number' ||
             typeof stock.volatility !== 'number' ||
             typeof stock.price !== 'number' ||
             typeof stock.activeCount !== 'number'
         )) {
-            return res.status(400).json({
-                error: 'Invalid stock data: all numeric fields must be numbers'
-            });
+            return res.status(400).json({error: 'Invalid stock data: all fields must be numbers'});
         }
 
-        const targetReturn = parseFloat(req.body.targetReturn);
-
-        if (!stocks || !targetReturn) {
-            return res.status(400).json({ error: 'stocks and targetReturn are required' });
+        const targetReturn = parseFloat(req.body.targetReturn || 0);
+        if (!stocks || targetReturn === undefined) {
+            return res.status(400).json({error: 'stocks and targetReturn are required'});
         }
 
         const n = stocks.length;
         const mu = stocks.map(stock => stock.expectedReturn);
         const sigma = stocks.map(stock => stock.volatility);
 
-        // Extract daily returns
+        // Compute covariance matrix
         const dailyReturns = stocks.map(stock => stock.dailyReturns);
-
-        // Compute correlation matrix
         const corrMatrix = Array.from({length: n}, (_, i) =>
             Array.from({length: n}, (_, j) =>
                 i === j ? 1 : calculateCorrelation(dailyReturns[i], dailyReturns[j])
             )
         );
-
-        // Compute covariance matrix
         const covMatrix = corrMatrix.map((row, i) =>
             row.map((corrVal, j) => corrVal * sigma[i] * sigma[j])
         );
 
-        // Calculate portfolio properties
         const currentValues = stocks.map(stock => stock.price * stock.activeCount);
         const portfolioValue = math.sum(currentValues);
+
         const initGuess = currentValues.map(val => val / portfolioValue);
 
-        // Objective function: minimize portfolio variance
         function portfolioVariance(weights) {
             let sum = 0;
             for (let i = 0; i < weights.length; i++) {
@@ -179,52 +253,35 @@ router.post('/optimize', async (req, res) => {
             return sum;
         }
 
-        // Constraints
         function constraint1(weights) {
             return math.sum(weights) - 1;
         }
 
         function constraint2(weights) {
-            return math.dot(mu, weights) - targetReturn;
-        }
-
-        function penalty(weights) {
-            return Math.pow(constraint1(weights), 2) * 1e5 + Math.pow(constraint2(weights), 2) * 1e5;
+            return math.dot(mu, weights) - targetReturn; // Enforces the expected portfolio return
         }
 
         function loss(weights) {
-            return portfolioVariance(weights) + penalty(weights);
+            return portfolioVariance(weights) + penalty(weights, mu, targetReturn);
         }
 
-        // Optimize
+        // Core computation
         const result = numeric.uncmin(loss, initGuess);
-        const optWeights = result.solution;
+        const optWeights = calculateNormalizedWeights(result.solution); // Normalized weights
+
+        // Calculate final metrics
         const finalReturn = math.dot(mu, optWeights);
         const finalVariance = portfolioVariance(optWeights);
-        const finalStd = Math.sqrt(finalVariance);
 
-        // Визначаємо діапазон цільової дохідності
-        const minMu = Math.min(...mu); // Мінімальна очікувана дохідність активу
-        const maxMu = Math.max(...mu); // Максимальна очікувана дохідність активу
-        const tgtReturns = math.range(minMu, maxMu, (maxMu - minMu) / 50)._data;
+        // Compute efficient frontier
+        const frontier = computeEfficientFrontier(stocks);
 
-        // Збираємо точки для ефективної межі та передаємо їх у відповідь
-        const frontierRisks = [];
-        for (const r of tgtReturns) {
-            const frontierLoss = weights =>
-                portfolioVariance(weights) +
-                Math.pow(constraint1(weights), 2) * 1e5 +
-                Math.pow(math.dot(mu, weights) - r, 2) * 1e5;
-
-            const result = numeric.uncmin(frontierLoss, initGuess, 0.0001);
-            if (result.solution) {
-                frontierRisks.push({
-                    return: r,
-                    risk: Math.sqrt(portfolioVariance(result.solution))
-                });
-            }
+        // Validate result
+        if (Math.abs(finalReturn - targetReturn) > 0.01) {
+            console.warn(`Optimization result deviates from target. Final Return: ${finalReturn}, Target Return: ${targetReturn}`);
         }
 
+        // Response
         res.json({
             success: true,
             initialWeights: stocks.map((stock, idx) => ({
@@ -237,12 +294,88 @@ router.post('/optimize', async (req, res) => {
             })),
             portfolioValue,
             finalReturn,
-            finalStd,
-            frontier: frontierRisks
+            finalStd: Math.sqrt(finalVariance),
+            doughnutChartData: calculateAdjustedActiveCounts(stocks, optWeights, portfolioValue),
+            frontier // Add efficient frontier as part of the response
         });
     } catch (error) {
         console.error('Optimization error:', error);
-        res.status(500).json({ error: 'Internal Server Error during optimization' });
+        res.status(500).json({error: 'Internal Server Error during optimization'});
     }
 });
+
+function calculateAdjustedActiveCounts(stocks, weights, portfolioValue, minWeight = 0.01) {
+    // Ensure normalized weights sum up to 1
+    function calculateNormalizedWeights(weights) {
+        const total = math.sum(weights);
+        if (total === 0) {
+            return weights.map(() => 1 / weights.length); // Handle edge case
+        }
+        return weights.map(w => w / total);
+    }
+
+    // Adjust weights to enforce a minimum weight constraint
+    const adjustedWeights = weights.map(w => Math.max(w, minWeight)); // Prevent weights close to 0
+    const scaledWeights = calculateNormalizedWeights(adjustedWeights); // Normalize weights to sum to 1
+
+    // Compute active counts before rounding
+    let activeCounts = stocks.map((stock, idx) => {
+        const weight = scaledWeights[idx];
+        const weightedValue = weight * portfolioValue;
+        return weightedValue / stock.price; // Pre-rounded active count
+    });
+
+    // Round active counts to integers
+    let roundedActiveCounts = activeCounts.map(count => Math.round(count));
+
+    // Compute the portfolio value based on rounded active counts
+    let roundedPortfolioValue = roundedActiveCounts.reduce(
+        (sum, count, idx) => sum + count * stocks[idx].price, 0
+    );
+
+    roundedPortfolioValueOutside = roundedPortfolioValue;
+
+    // Compute the residue to adjust for rounding discrepancies
+    let residue = portfolioValue - roundedPortfolioValue;
+
+    // Adjust for any remaining discrepancy in portfolio value caused by rounding
+    if (Math.abs(residue) > 0.01) { // Adjust only if significant residue exists
+        const adjustmentPriority = stocks.map((stock, idx) => ({
+            idx,
+            price: stock.price,
+            impact: Math.abs(residue / stock.price) // Impact per adjustment
+        })).sort((a, b) => b.impact - a.impact);
+
+        for (const {idx} of adjustmentPriority) {
+            if (Math.abs(residue) < stocks[idx].price) {
+                break; // No adjustment needed if residue is smaller than stock price
+            }
+            // Determine whether to add or subtract to correct the residue
+            const increment = Math.sign(residue);
+            const adjustment = increment * stocks[idx].price;
+
+            // Apply adjustment and update residue
+            roundedActiveCounts[idx] += increment;
+            residue -= adjustment;
+
+            if (Math.abs(residue) < 0.01) {
+                break; // Residue small enough, stop adjusting
+            }
+        }
+    }
+
+    // Return stocks with adjusted active counts
+    return stocks.map((stock, idx) => ({
+        ...stock,
+        activeCount: Math.max(0, roundedActiveCounts[idx]) // Ensure active counts are not negative
+    }));
+}
+
+
+function penalty(weights, mu, targetReturn) {
+    const sumPenalty = Math.pow(math.sum(weights) - 1, 2); // Enforce sum(weights) == 1
+    const returnPenalty = Math.pow(math.dot(mu, weights) - targetReturn, 2); // Enforce target return
+    return sumPenalty * 1e6 + returnPenalty * 1e7; // Increase penalty coefficients
+}
+
 module.exports = router;

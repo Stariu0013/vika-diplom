@@ -1,64 +1,101 @@
 const express = require('express');
+const verifyToken = require('../utils/verifyToken'); // Example path to middleware
 const Portfolio = require('../models/Portfolio');
-const {PORTFOLIOS_ROUTE} = require("../consts"); // Middleware to verify login
+
 const router = express.Router();
 
-router.get(`/all`, async (req, res) => {
-    try {
-        const userId = req.userId; // The userId is attached to the request by the middleware
-        const portfolios = await Portfolio.find({ userId }); // Fetch portfolios belonging to the authenticated user
-        res.status(200).json(portfolios);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error while fetching portfolios' });
-    }
-});
+router.use(verifyToken);
 
-router.post(`${PORTFOLIOS_ROUTE}`, async (req, res) => {
-    const { portfolioName, wallet, type } = req.body;
+router.post('/create', async (req, res) => {
+    const { portfolioName, wallet, type, actives } = req.body;
 
     try {
-        if (!portfolioName || wallet == null || !type) {
-            return res.status(400).json({ message: 'All required fields must be provided' });
-        }
-
-        const userId = req.userId; // Extract userId from the request object
-
-        // Create new Portfolio object
         const newPortfolio = new Portfolio({
             portfolioName,
             wallet,
             type,
-            id: Math.random().toString(36).substr(2, 10), // Generate a random unique ID
-            userId, // Link the portfolio to the authenticated user
-            actives: req.body.actives || [],
+            dateCreated: new Date(),
+            actives: actives || [],
+            id: Math.random().toString(36).substr(2, 10),
+            userId: req.userId,
         });
 
-        await newPortfolio.save(); // Save portfolio to the database
+        await newPortfolio.save();
         res.status(201).json(newPortfolio);
-    } catch (err) {
-        console.error(err);
+    } catch (error) {
+        console.error('Error creating portfolio:', error);
         res.status(500).json({ message: 'Server error while creating portfolio' });
     }
 });
 
-// Delete a portfolio for the authenticated user
-router.delete(`${PORTFOLIOS_ROUTE}/:id`, async (req, res) => {
+// Get all portfolios for the authenticated user
+router.get('/all', async (req, res) => {
+    try {
+        const portfolios = await Portfolio.find({ userId: req.userId });
+        res.status(200).json(portfolios);
+    } catch (error) {
+        console.error('Error fetching portfolios:', error);
+        res.status(500).json({ message: 'Server error while fetching portfolios' });
+    }
+});
+
+router.get('/:id', async (req, res) => {
     const portfolioId = req.params.id;
 
     try {
-        const userId = req.userId;
-
-        // Ensure portfolio belongs to the authenticated user
-        const portfolio = await Portfolio.findOneAndDelete({ id: portfolioId, userId });
+        const portfolio = await Portfolio.findOne({ id: portfolioId, userId: req.userId });
 
         if (!portfolio) {
-            return res.status(404).json({ message: 'Portfolio not found or unauthorized' });
+            return res.status(404).json({ message: 'Portfolio not found or access denied' });
+        }
+
+        res.status(200).json(portfolio);
+    } catch (error) {
+        console.error('Error fetching portfolio:', error);
+        res.status(500).json({ message: 'Server error while fetching portfolio' });
+    }
+});
+
+router.put('/update/:id', async (req, res) => {
+    const portfolioId = req.params.id;
+    const { portfolioName, wallet, type, actives } = req.body;
+
+    try {
+        const updatedPortfolio = await Portfolio.findOneAndUpdate(
+            { id: portfolioId, userId: req.userId },
+            {
+                portfolioName: portfolioName || undefined,
+                wallet: wallet || undefined,
+                type: type || undefined,
+                actives: actives || undefined
+            },
+            { new: true, omitUndefined: true }
+        );
+
+        if (!updatedPortfolio) {
+            return res.status(404).json({ message: 'Portfolio not found or access denied' });
+        }
+
+        res.status(200).json(updatedPortfolio);
+    } catch (error) {
+        console.error('Error updating portfolio:', error);
+        res.status(500).json({ message: 'Server error while updating portfolio' });
+    }
+});
+
+router.delete('/delete/:id', async (req, res) => {
+    const portfolioId = req.params.id;
+
+    try {
+        const portfolio = await Portfolio.findOneAndDelete({ id: portfolioId, userId: req.userId });
+
+        if (!portfolio) {
+            return res.status(404).json({ message: 'Portfolio not found or access denied' });
         }
 
         res.status(200).json({ message: 'Portfolio deleted successfully' });
-    } catch (err) {
-        console.error(err);
+    } catch (error) {
+        console.error('Error deleting portfolio:', error);
         res.status(500).json({ message: 'Server error while deleting portfolio' });
     }
 });
