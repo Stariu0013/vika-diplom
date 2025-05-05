@@ -29,9 +29,7 @@ const defaultChartOptions = {
 
 const chartDataTemplate = (items) => {
     return {
-        labels: items
-            ?.filter((item) => item.activeCount > 0)
-            .map((item) => item.name),
+        labels: items.map((item) => item.name),
         datasets: [
             {
                 data: items?.map((item) => item.activeCount),
@@ -211,6 +209,26 @@ export const useActivesItems = ({ items }) => {
         chartComparisonOptimizedData
     );
 
+    const doughnutChartOptimizedPercentsData = {
+        labels: items?.map((item) => item?.name),
+        datasets: [{
+            label: 'Відсоток',
+            data: chartComparisonOptimizedData?.map((item) => item?.weight * 100),
+            backgroundColor: [
+                "#FF6384",
+                "#36A2EB",
+                "#FFCE56",
+                "#4BC0C0",
+                "#9966FF",
+                "#FF9F40",
+            ],
+            hoverOffset: 4
+        }],
+        scales: {
+            x: { title: { display: true, text: "Test" } },
+        },
+    }
+
     return {
         lineChartData,
         error,
@@ -224,6 +242,7 @@ export const useActivesItems = ({ items }) => {
         columns,
         doughnutChartOptimizedData,
         open,
+        doughnutChartOptimizedPercentsData,
         inputValue,
         maxVolatility,
         minVolatility,

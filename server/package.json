@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "start": "node server.js"
   },
   "keywords": [],
@@ -26,5 +26,9 @@
     "quadprog": "^1.6.1",
     "uuid": "^11.1.0",
     "yahoo-finance2": "^2.13.3"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
   }
 }

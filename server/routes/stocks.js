@@ -103,6 +103,18 @@ let roundedPortfolioValueOutside;
 
 router.post('/optimize', async (req, res) => {
     try {
+        function normalizeWeights(weights) {
+            const totalWeight = weights.reduce((sum, stock) => sum + stock.weight, 0);
+            if (totalWeight === 0) {
+                throw new Error("Total weight is zero, cannot normalize.");
+            }
+
+            return weights.map(stock => ({
+                name: stock.name,
+                weight: stock.weight / totalWeight // Normalize each weight
+            }));
+        }
+
         function calculateNormalizedWeights(weights) {
             // Normalize weights to sum strictly equals 1.0
             const total = math.sum(weights);
@@ -261,15 +273,31 @@ router.post('/optimize', async (req, res) => {
             return math.dot(mu, weights) - targetReturn; // Enforces the expected portfolio return
         }
 
-        function loss(weights) {
-            return portfolioVariance(weights) + penalty(weights, mu, targetReturn);
-        }
+   const loss = (weights) => {
+       const variance = portfolioVariance(weights);
+       const sumPenalty = Math.pow(math.sum(weights) - 1, 2); // Weight sum constraint
+       const returnPenalty = Math.pow(math.dot(mu, weights) - targetReturn, 2); // Expected return approximation
+       return variance + sumPenalty * 1e6 + returnPenalty * 1e7; // Weighted penalties
+   };
 
         // Core computation
         const result = numeric.uncmin(loss, initGuess);
-        const optWeights = calculateNormalizedWeights(result.solution); // Normalized weights
+        const optWeights = calculateNormalizedWeights(result.solution);
 
-        // Calculate final metrics
+        let optimizedWeights = stocks.map((stock, idx) => ({
+            name: stock.name,
+            weight: optWeights[idx] > 0 ? optWeights[idx] : 0.01
+        }));
+
+        // Normalize the weights to enforce their sum equals 1
+        optimizedWeights = normalizeWeights(optimizedWeights);
+
+        // Validate final sum of weights for safety (debugging purposes)
+        const totalOptimizedWeight = optimizedWeights.reduce((sum, stock) => sum + stock.weight, 0);
+        if (Math.abs(totalOptimizedWeight - 1) > 0.00001) {
+            console.warn(`Weights were not normalized correctly. Sum: ${totalOptimizedWeight}`);
+        }
+
         const finalReturn = math.dot(mu, optWeights);
         const finalVariance = portfolioVariance(optWeights);
 
@@ -288,15 +316,12 @@ router.post('/optimize', async (req, res) => {
                 name: stock.name,
                 weight: initGuess[idx]
             })),
-            optimizedWeights: stocks.map((stock, idx) => ({
-                name: stock.name,
-                weight: optWeights[idx]
-            })),
+            optimizedWeights,
             portfolioValue,
             finalReturn,
             finalStd: Math.sqrt(finalVariance),
             doughnutChartData: calculateAdjustedActiveCounts(stocks, optWeights, portfolioValue),
-            frontier // Add efficient frontier as part of the response
+            frontier
         });
     } catch (error) {
         console.error('Optimization error:', error);
@@ -308,10 +333,7 @@ function calculateAdjustedActiveCounts(stocks, weights, portfolioValue, minWeigh
     // Ensure normalized weights sum up to 1
     function calculateNormalizedWeights(weights) {
         const total = math.sum(weights);
-        if (total === 0) {
-            return weights.map(() => 1 / weights.length); // Handle edge case
-        }
-        return weights.map(w => w / total);
+        return total === 0 ? weights.map(() => 1 / weights.length) : weights.map(w => w / total);
     }
 
     // Adjust weights to enforce a minimum weight constraint
@@ -346,7 +368,7 @@ function calculateAdjustedActiveCounts(stocks, weights, portfolioValue, minWeigh
             impact: Math.abs(residue / stock.price) // Impact per adjustment
         })).sort((a, b) => b.impact - a.impact);
 
-        for (const {idx} of adjustmentPriority) {
+        for (const { idx } of adjustmentPriority) {
             if (Math.abs(residue) < stocks[idx].price) {
                 break; // No adjustment needed if residue is smaller than stock price
             }
@@ -368,9 +390,8 @@ function calculateAdjustedActiveCounts(stocks, weights, portfolioValue, minWeigh
     return stocks.map((stock, idx) => ({
         ...stock,
         activeCount: Math.max(0, roundedActiveCounts[idx]) // Ensure active counts are not negative
-    }));
+    }))
 }
-
 
 function penalty(weights, mu, targetReturn) {
     const sumPenalty = Math.pow(math.sum(weights) - 1, 2); // Enforce sum(weights) == 1

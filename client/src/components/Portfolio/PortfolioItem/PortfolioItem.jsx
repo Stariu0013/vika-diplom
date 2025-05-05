@@ -1,7 +1,7 @@
 import ActivesForm from "../../Actives/ActivesForm/ActivesForm.jsx";
 import ActiveItems from "../../Actives/ActivesItems/ActiveItems.jsx";
 import { usePortfolioItem } from "./usePortfolioItem.jsx";
-import { Box, Typography } from "@mui/material";
+import {Box, CircularProgress, Typography} from "@mui/material";
 
 const PortfolioItem = () => {
     const {
@@ -9,6 +9,7 @@ const PortfolioItem = () => {
         portfolioSum,
         dateCreated,
         type,
+        loading,
         error,
         portfolioName,
         selectedActives,
@@ -25,7 +26,11 @@ const PortfolioItem = () => {
         );
     }
 
-    return (
+    return loading ? (
+        <Box sx={{display: "flex", marginTop: '20px', justifyContent: "center"}}>
+            <CircularProgress/>
+        </Box>
+    ) : (
         <Box sx={{ padding: "16px", backgroundColor: "#f5f5f5", borderRadius: "8px" }}>
             <ActivesForm
                 type={type}

@@ -1,5 +1,5 @@
 import React, {useMemo, useRef} from "react";
-import {Button, Paper, CircularProgress, Box} from "@mui/material";
+import {Button, Paper, CircularProgress, Box, Grid, Typography} from "@mui/material";
 import {DataGrid} from "@mui/x-data-grid";
 import {
     Chart as ChartJS,
@@ -41,6 +41,7 @@ const ActiveItems = ({items, selectedActives, deleteActiveItem, setSelectedActiv
         chartOptimizationData,
         columns,
         doughnutChartOptimizedData,
+        doughnutChartOptimizedPercentsData,
         minVolatility,
         maxVolatility,
         inputValue,
@@ -118,12 +119,24 @@ const ActiveItems = ({items, selectedActives, deleteActiveItem, setSelectedActiv
                 scatterChartOptions={scatterChartOptions}
             />
 
-            {
-                doughnutChartOptimizedData && <Paper sx={{height: 300, width: "100%", marginTop: 2, padding: 2}}>
-                    <Doughnut ref={doughnutChartRef} data={memoizedChartData}
-                              options={defaultChartOptions}/>
-                </Paper>
-            }
+            <Grid container spacing={2} sx={{marginTop: 2}}>
+                <Grid item xs={12} lg={6}>
+                    <Typography variant="h6" xs={{ textAlign: 'center'}}>Оптимальний перерозподіл балансу</Typography>
+                    {
+                        doughnutChartOptimizedData && <Paper sx={{height: 300, width: "100%", marginTop: 2, padding: 2}}>
+                            <Doughnut data={memoizedChartData} options={defaultChartOptions}/>
+                        </Paper>
+                    }
+                </Grid>
+                <Grid item xs={12} lg={6}>
+                    <Typography variant="h6" xs={{ textAlign: 'center'}}>Оптимізовані ваги у відсотковому співвідношенні</Typography>
+                    {
+                        doughnutChartOptimizedPercentsData && <Paper sx={{height: 300, width: "100%", marginTop: 2, padding: 2}}>
+                            <Doughnut data={doughnutChartOptimizedPercentsData} options={defaultChartOptions}/>
+                        </Paper>
+                    }
+                </Grid>
+            </Grid>
 
             {error && <p style={{color: "red"}}>Error: {error}</p>}
         </>
