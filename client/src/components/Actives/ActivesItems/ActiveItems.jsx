@@ -119,24 +119,30 @@ const ActiveItems = ({items, selectedActives, deleteActiveItem, setSelectedActiv
                 scatterChartOptions={scatterChartOptions}
             />
 
-            <Grid container spacing={2} sx={{marginTop: 2}}>
-                <Grid item xs={12} lg={6}>
-                    <Typography variant="h6" xs={{ textAlign: 'center'}}>Оптимальний перерозподіл балансу</Typography>
-                    {
-                        doughnutChartOptimizedData && <Paper sx={{height: 300, width: "100%", marginTop: 2, padding: 2}}>
-                            <Doughnut data={memoizedChartData} options={defaultChartOptions}/>
-                        </Paper>
-                    }
-                </Grid>
-                <Grid item xs={12} lg={6}>
-                    <Typography variant="h6" xs={{ textAlign: 'center'}}>Оптимізовані ваги у відсотковому співвідношенні</Typography>
-                    {
-                        doughnutChartOptimizedPercentsData && <Paper sx={{height: 300, width: "100%", marginTop: 2, padding: 2}}>
-                            <Doughnut data={doughnutChartOptimizedPercentsData} options={defaultChartOptions}/>
-                        </Paper>
-                    }
-                </Grid>
-            </Grid>
+
+            {
+                (doughnutChartOptimizedData && doughnutChartOptimizedPercentsData) ?
+                    (
+                        <Grid container spacing={2} sx={{marginTop: 2}}>
+                            <Grid item xs={12} lg={6}>
+                                <Typography variant="h6" xs={{ textAlign: 'center'}}>Оптимальний перерозподіл балансу</Typography>
+                                {
+                                    doughnutChartOptimizedData && <Paper sx={{height: 300, width: "100%", marginTop: 2, padding: 2}}>
+                                        <Doughnut data={memoizedChartData} options={defaultChartOptions}/>
+                                    </Paper>
+                                }
+                            </Grid>
+                            <Grid item xs={12} lg={6}>
+                                <Typography variant="h6" xs={{ textAlign: 'center'}}>Оптимізовані ваги у відсотковому співвідношенні</Typography>
+                                {
+                                    doughnutChartOptimizedPercentsData && <Paper sx={{height: 300, width: "100%", marginTop: 2, padding: 2}}>
+                                        <Doughnut data={doughnutChartOptimizedPercentsData} options={defaultChartOptions}/>
+                                    </Paper>
+                                }
+                            </Grid>
+                        </Grid>
+                    ) : null
+            }
 
             {error && <p style={{color: "red"}}>Error: {error}</p>}
         </>

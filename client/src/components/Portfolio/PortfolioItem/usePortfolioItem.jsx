@@ -65,6 +65,7 @@ export const usePortfolioItem = () => {
     };
 
     const addActiveItems = (item) => {
+        setLoading(true);
         const { price, activeCount } = item;
         const activesSum = price * activeCount;
 
@@ -79,10 +80,14 @@ export const usePortfolioItem = () => {
             .catch((error) => {
                 console.error("Error creating active:", error?.response?.data);
                 setError("Error creating active item.");
+            }).finally(() => {
+                setLoading(false);
             });
     };
 
     const deleteActiveItem = async () => {
+        setLoading(true);
+
         try {
             const deleteRequests = selectedActives.map((activeId) =>
                 axiosInstance.delete(
@@ -112,6 +117,8 @@ export const usePortfolioItem = () => {
                 error?.response?.data || error.message
             );
             setError("Error deleting active items.");
+        } finally {
+            setLoading(false);
         }
     };
 
