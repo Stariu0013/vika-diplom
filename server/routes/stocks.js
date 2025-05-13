@@ -28,6 +28,8 @@ async function fetchStockHistory(symbol, interval = '1d') {
         const endDate = new Date();
         const startDate = new Date();
         startDate.setMonth(startDate.getMonth() - 1);
+
+        // Fetch historical data with retries
         const historicalData = await fetchWithRetry(() =>
             yahooFinance.historical(symbol, {
                 period1: startDate,
@@ -35,19 +37,43 @@ async function fetchStockHistory(symbol, interval = '1d') {
                 interval
             })
         );
-        const closingPrices = historicalData.map(data => data.close);
+
+        // Validate response
+        if (!historicalData || !Array.isArray(historicalData)) {
+            throw new Error(`Invalid data received for symbol ${symbol}`);
+        }
+
+        if (historicalData.length === 0) {
+            console.warn(`No historical data found for symbol ${symbol}`);
+            return { symbol, data: [] }; // Return empty data if no history available
+        }
+
+        // Extract closing prices and calculate returns
+        const closingPrices = historicalData
+            .map(data => data?.close) // Validate close property
+            .filter(price => price != null); // Filter invalid/missing data
+
         const dailyReturns = closingPrices.slice(1).map((price, index) =>
             (price - closingPrices[index]) / closingPrices[index]
         );
+
+        // Calculate metrics
         const expectedReturn = dailyReturns.reduce((sum, dailyReturn) => sum + dailyReturn, 0) / dailyReturns.length;
         const volatility = Math.sqrt(
-            dailyReturns.reduce((sum, dailyReturn) => sum + Math.pow(dailyReturn - expectedReturn, 2), 0) / dailyReturns.length
+            dailyReturns.reduce((sum, dailyReturn) => sum + Math.pow(dailyReturn - expectedReturn, 2), 0) /
+            dailyReturns.length
         );
         const annualizedVolatility = volatility * Math.sqrt(252);
-        let riskScore = annualizedVolatility < 0.15 ? "Low" : annualizedVolatility < 0.25 ? "Medium" : "High";
+
+        // Define risk score
+        let riskScore = annualizedVolatility < 0.15 ? "Low" :
+                        annualizedVolatility < 0.25 ? "Medium" : "High";
+
         if (expectedReturn < -0.02) {
             riskScore = riskScore === "High" ? "Very High" : "High";
         }
+
+        // Process data with last 5 elements
         const lastFiveElements = historicalData.slice(-5).map(data => ({
             date: data.date,
             open: data.open,
@@ -60,13 +86,14 @@ async function fetchStockHistory(symbol, interval = '1d') {
             dailyReturns: dailyReturns.slice(-5),
             riskScore
         }));
+
         return {
             symbol,
             data: lastFiveElements
         };
     } catch (error) {
-        console.error(`Error fetching historical data for ${symbol}:`, error);
-        return {error: `Failed to fetch data for ${symbol}`};
+        console.error(`Error fetching historical data for ${symbol}:`, error.message);
+        return { error: `Failed to fetch data for ${symbol}` };
     }
 }
 
