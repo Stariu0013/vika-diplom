@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         try {
-            const response = await axios.post('https://vika-diplom-api.onrender.com/api/auth/refresh-token', {
+            const response = await axios.post('http://localhost:5125/api/auth/refresh-token', {
                 refreshToken,
             });
 

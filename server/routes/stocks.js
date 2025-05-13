@@ -5,6 +5,29 @@ const router = express.Router();
 const math = require('mathjs');
 const numeric = require('numeric');
 
+const cache = new Map(); // Simple in-memory cache
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+async function fetchStockHistoryWithCache(symbol, interval = '1d') {
+    const cacheKey = `${symbol}-${interval}`;
+    const now = Date.now();
+
+    if (cache.has(cacheKey)) {
+        const { data, expires } = cache.get(cacheKey);
+        if (expires > now) {
+            return data;
+        } else {
+            cache.delete(cacheKey); // Cache expired
+        }
+    }
+
+    const data = await fetchStockHistory(symbol, interval);
+    cache.set(cacheKey, { data, expires: now + CACHE_TTL });
+
+    return data;
+}
+
+
 async function fetchStockHistory(symbol, interval = '1d') {
     try {
         const endDate = new Date();
@@ -72,7 +95,7 @@ async function fetchSectorHistory(sector, interval = '1d') {
 
         const results = {};
         for (const symbol of sectorSymbols) {
-            results[symbol] = await fetchStockHistory(symbol, interval);
+            results[symbol] = await fetchStockHistoryWithCache(symbol, interval);
             // todo: remove this promise
             await new Promise(resolve => setTimeout(resolve, 100));
         }

@@ -31,7 +31,7 @@ export const usePortfolioItem = () => {
 
     useEffect(() => {
         fetchData(
-            `https://vika-diplom-api.onrender.com/api/portfolios/${portfolioId}`,
+            `http://localhost:5125/api/portfolios/${portfolioId}`,
             (data) => {
                 setPortfolioData(data);
                 setPortfolioSum(Number(data.wallet));
@@ -40,7 +40,7 @@ export const usePortfolioItem = () => {
         );
 
         fetchData(
-            `https://vika-diplom-api.onrender.com/api/actives/${portfolioId}/actives`,
+            `http://localhost:5125/api/actives/${portfolioId}/actives`,
             setActiveItems,
             "Error fetching active items."
         );
@@ -72,7 +72,7 @@ export const usePortfolioItem = () => {
         updatePortfolioSum(activesSum);
 
         axiosInstance
-            .post(`https://vika-diplom-api.onrender.com/api/actives/${id}/actives/create`, item)
+            .post(`http://localhost:5125/api/actives/${id}/actives/create`, item)
             .then((response) => {
                 console.log("Active created:", response.data);
                 setActiveItems((prevItems) => [...prevItems, response.data]);
@@ -91,7 +91,7 @@ export const usePortfolioItem = () => {
         try {
             const deleteRequests = selectedActives.map((activeId) =>
                 axiosInstance.delete(
-                    `https://vika-diplom-api.onrender.com/api/actives/${portfolioId}/actives/delete/${activeId}`
+                    `http://localhost:5125/api/actives/${portfolioId}/actives/delete/${activeId}`
                 )
             );
 

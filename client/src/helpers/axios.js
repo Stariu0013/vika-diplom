@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-    baseURL: 'https://vika-diplom-api.onrender.com/api',
+    baseURL: 'http://localhost:5125/api',
 });
 
 axiosInstance.interceptors.request.use(
@@ -23,7 +23,7 @@ axiosInstance.interceptors.response.use(
                 const refreshToken = localStorage.getItem('refreshToken');
                 if (!refreshToken) throw new Error('No refresh token stored');
 
-                const response = await axios.post('https://vika-diplom-api.onrender.com/api/auth/refresh', {
+                const response = await axios.post('http://localhost:5125/api/auth/refresh', {
                     refreshToken,
                 });
 

@@ -176,7 +176,7 @@ const ActivesForm = memo(function ActivesForm({type, portfolioSum, addActiveItem
                                     margin: "5px 0 10px",
                                 }}
                             >
-                                Ціна - {price}
+                                Ціна - {price?.toFixed(2)}
                             </Box>
 
                             <Box
