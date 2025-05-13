@@ -28,7 +28,7 @@ export const useMainPage = () => {
 
             updateState(async () => {
                 const response = await axiosInstance.post(
-                    "http://localhost:5125/api/portfolios/create",
+                    "https://vika-diplom-api.onrender.com/api/portfolios/create",
                     newItem
                 );
 
@@ -42,7 +42,7 @@ export const useMainPage = () => {
         (id) => {
             updateState(() =>
                 axiosInstance.delete(
-                    `http://localhost:5125/api/portfolios/${id}/delete`
+                    `https://vika-diplom-api.onrender.com/api/portfolios/${id}/delete`
                 ).then(() => {
                     setPortfolios((prev) =>
                         prev.filter((portfolio) => portfolio.id !== id)
@@ -55,7 +55,7 @@ export const useMainPage = () => {
 
     useEffect(() => {
         updateState(() =>
-            axiosInstance.get("http://localhost:5125/api/portfolios/all").then((res) => {
+            axiosInstance.get("https://vika-diplom-api.onrender.com/api/portfolios/all").then((res) => {
                 if (res.status === 200) {
                     setPortfolios(res.data);
                 }

@@ -58,7 +58,7 @@ export const usePortfolioForm = ({ addPortfolio }) => {
             setLoading(true);
             setError(null);
             try {
-                const res = await axiosInstance.get("http://localhost:5125/api/stocks/sectors");
+                const res = await axiosInstance.get("https://vika-diplom-api.onrender.com/api/stocks/sectors");
                 if (res.status === 200) {
                     setSectors(Object.keys(res.data));
                 }

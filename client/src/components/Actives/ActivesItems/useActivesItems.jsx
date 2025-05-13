@@ -180,7 +180,7 @@ export const useActivesItems = ({ items }) => {
         setLoading(true);
         try {
             const response = await axiosInstance.post(
-                "http://localhost:5125/api/stocks/optimize",
+                "https://vika-diplom-api.onrender.com/api/stocks/optimize",
                 {
                     targetReturn: inputValue,
                     stocks: items,
